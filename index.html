@@ -2,215 +2,586 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Álbum en Vivo - Nuestra Boda</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Nuestra Boda - Álbum Colaborativo</title>
+
+    <!-- Estilos y Librerías Base -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- React y Babel/Standalone para el SPA -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+
     <style>
-        /* Estilos generales del carrusel */
-        :root {
-            --color-primary: #a0522d; /* Color arena/tierra */
-            --color-secondary: #f5e9d9; /* Blanco roto/crema */
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@100..900&display=swap');
+        
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--color-secondary);
-            color: #333;
-            overflow: hidden; /* Ocultar barras de desplazamiento */
+            background-color: #FDFBFF; 
         }
-        .header-title {
+        /* Playfair Display para el título (solo mayúsculas) */
+        .playfair-title {
             font-family: 'Playfair Display', serif;
-            font-size: 4rem;
-            color: var(--color-primary);
-            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
         }
-        /* Contenedor del Carrusel */
-        .carousel-container {
-            display: flex;
-            transition: transform 0.5s ease-in-out;
+
+        /* Animación Fade-in para los componentes principales */
+        .animate-fadein {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Estilo para la galería, usando grid para un diseño responsive */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+        }
+        @media (min-width: 640px) {
+            .photo-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            }
+        }
+        .photo-card {
+            aspect-ratio: 1 / 1; /* Hace que todas las tarjetas sean cuadradas */
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .photo-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        .photo-card img {
             width: 100%;
             height: 100%;
+            object-fit: cover;
+            transition: opacity 0.3s;
         }
-        /* Estilos de la diapositiva */
-        .slide {
-            flex-shrink: 0; /* No encoger las diapositivas */
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
+        .photo-card-skeleton {
+            background-color: #e0e0e0;
+            animation: pulse 1.5s infinite;
         }
-        /* Estilo de la imagen */
-        .slide-image {
-            object-fit: contain; /* Asegura que la imagen completa se vea */
-            max-width: 90%;
-            max-height: 90%;
-            border-radius: 1rem;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            transform: scale(0.95);
-            transition: transform 0.8s ease-out;
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
         }
-        .slide-image.active {
-            transform: scale(1);
+
+        /* Estilo para el modal */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
         }
-        /* Efecto de carga/mensaje */
-        #loading-message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2rem;
-            color: var(--color-primary);
-            text-align: center;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
+
     </style>
 </head>
-<body class="p-0 m-0">
+<body class="antialiased">
+    <div id="root"></div>
 
-    <div id="proyector-app" class="w-screen h-screen flex flex-col items-center justify-center p-0 m-0">
-        
-        <!-- Carrusel de Diapositivas -->
-        <div class="overflow-hidden w-full h-full relative">
-            <div id="carousel-inner" class="carousel-container">
-                <!-- Las fotos se insertarán aquí -->
-            </div>
-            
-            <div id="loading-message">Cargando Álbum...</div>
-        </div>
-        
-    </div>
+    <script type="text/babel">
+        // ====================================================================
+        // CONFIGURACIÓN DEL SCRIPT
+        // ¡IMPORTANTE! Reemplaza esta URL con la URL de ejecución final de tu Apps Script
+        // Debe terminar en /exec
+        const SCRIPT_URL_SUBIDA = "URL_DE_TU_APPS_SCRIPT_DE_SUBIDA_AQUI"; // <-- ¡REEMPLAZA ESTA LÍNEA!
+        // ====================================================================
 
-    <script>
-        // ¡URL DE APPS SCRIPT INSERTADA!
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwK4uck5IEiIRJAvs_NNT-cORUa_sc5vPLnwl8pSpNddYOwMMUugbu1co1DQY3pPMGg/exec"; 
+        const { useState, useEffect, useCallback, useMemo } = React;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
 
-        const carouselInner = document.getElementById('carousel-inner');
-        const loadingMessage = document.getElementById('loading-message');
-        let photos = [];
-        let currentIndex = 0;
-        let slideInterval;
-        const SLIDE_DURATION_MS = 6000; // Mostrar cada foto por 6 segundos
-        const REFRESH_RATE_MS = 30000; // Comprobar nuevas fotos cada 30 segundos
+        // ====================================================================
+        // COMPONENTES DE UI
+        // ====================================================================
 
         /**
-         * 1. Fetches the latest photo URLs from Google Apps Script.
+         * Componente Modal: Muestra un mensaje de error o una foto en grande.
          */
-        async function fetchPhotos() {
-            try {
-                // Llamamos a la función getLatestPhotos en el Apps Script con el parámetro action=get_photos
-                const response = await fetch(`${APPS_SCRIPT_URL}?action=get_photos`);
-                
-                // 1b. Verificar si la respuesta HTTP es exitosa
-                if (!response.ok) {
-                    loadingMessage.innerHTML = `<h4>ERROR HTTP: ${response.status}</h4><p>No se pudo conectar con Apps Script.<br>Verifica los permisos de despliegue (debe ser 'Cualquier persona').</p>`;
-                    loadingMessage.classList.remove('hidden');
-                    throw new Error(`Error HTTP: ${response.status}. Asegúrate de que el Apps Script está desplegado con acceso: "Cualquier persona".`);
-                }
-                
-                const newPhotos = await response.json();
-                
-                if (newPhotos.length > 0) {
-                    // Si las nuevas fotos son diferentes o hay más, actualizamos
-                    const currentPhotoUrls = photos.map(p => p.url);
-                    const incomingPhotoUrls = newPhotos.map(p => p.url);
+        const Modal = ({ title, message, children, onClose }) => {
+            if (!message && !children) return null;
 
-                    // Solo actualizamos si hay diferencia o si es la primera carga
-                    if (photos.length === 0 || JSON.stringify(currentPhotoUrls) !== JSON.stringify(incomingPhotoUrls)) {
-                        photos = newPhotos;
-                        renderCarousel();
-                        loadingMessage.classList.add('hidden');
-                        if (!slideInterval) {
-                            startCarousel();
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+                    <div 
+                        className="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full transform transition-all animate-fadein" 
+                        onClick={(e) => e.stopPropagation()} // Evita que el clic en el modal lo cierre
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className={`text-xl font-bold ${message ? 'text-red-600' : 'text-gray-800'}`}>{title}</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        {message && <p className="text-gray-600">{message}</p>}
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        /**
+         * Componente de Pantalla de Carga/Mensaje
+         */
+        const LoadingScreen = ({ message, type = 'loading' }) => {
+            const icon = useMemo(() => {
+                switch (type) {
+                    case 'loading':
+                        return (
+                            <svg className="animate-spin h-8 w-8 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        );
+                    case 'success':
+                        return (
+                            <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        );
+                    default:
+                        return null;
+                }
+            }, [type]);
+
+            return (
+                <div className="fixed inset-0 z-40 bg-white bg-opacity-90 flex flex-col items-center justify-center p-4">
+                    {icon}
+                    <p className="mt-4 text-lg font-semibold text-gray-700">{message}</p>
+                </div>
+            );
+        };
+
+        // ====================================================================
+        // LÓGICA DE LA APLICACIÓN
+        // ====================================================================
+
+        // Función de utilidad para manejar el fetch con reintentos
+        const fetchWithRetry = async (url, options = {}, retries = 3) => {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, 2 ** i * 1000)); // Espera exponencial
+                }
+            }
+        };
+
+        /**
+         * Envia la imagen a Apps Script para guardarla en Drive.
+         */
+        const uploadFileToDrive = async (file, setUploadStatus, setModalError) => {
+            if (!SCRIPT_URL_SUBIDA.includes('exec')) {
+                 setModalError({ 
+                    title: "Error de Configuración", 
+                    message: "La URL de Apps Script no está configurada correctamente. Debe ser la URL de ejecución que termina en /exec."
+                });
+                return;
+            }
+
+            setUploadStatus({ loading: true, message: "Comprimiendo y preparando foto..." });
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+
+            reader.onload = async function () {
+                const base64Data = reader.result;
+
+                const payload = {
+                    base64: base64Data,
+                    filename: file.name,
+                    mimeType: file.type
+                };
+
+                try {
+                    setUploadStatus({ loading: true, message: "Subiendo foto a Google Drive (esto puede tardar)..." });
+                    
+                    const response = await fetchWithRetry(SCRIPT_URL_SUBIDA, {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                        headers: {
+                            'Content-Type': 'application/json' 
                         }
+                    });
+
+                    const result = await response.json();
+
+                    if (result.status === 'success') {
+                        setUploadStatus({ loading: true, message: "¡Foto subida con éxito! 🎉" });
+                        setTimeout(() => {
+                             setUploadStatus({ loading: false, message: "" });
+                             return true;
+                        }, 1500);
+                        
+                    } else {
+                        throw new Error(result.message || "Error desconocido en Apps Script.");
                     }
+                } catch (error) {
+                    console.error("Error completo:", error);
+                    setUploadStatus({ loading: false, message: "" });
+                    setModalError({ 
+                        title: "Error de Red/JSON", 
+                        message: "Asegúrate de que el Apps Script devuelva JSON válido y que no haya problemas de red. (Detalle: " + error.message + ")"
+                    });
+                }
+            };
+
+            reader.onerror = function (error) {
+                console.error("Error al leer archivo:", error);
+                setUploadStatus({ loading: false, message: "" });
+                setModalError({ title: "Error de Lectura", message: "No se pudo leer el archivo de la cámara." });
+            };
+        };
+
+        /**
+         * Obtiene la lista de URLs de las fotos.
+         */
+        const fetchPhotos = async (setPhotos, setIsLoading, setModalError) => {
+            if (!SCRIPT_URL_SUBIDA.includes('exec')) {
+                // No mostramos error en la carga inicial, solo mostramos el modal si se intenta subir
+                setIsLoading(false);
+                return; 
+            }
+            
+            setIsLoading(true);
+            try {
+                // Llamar a la URL de subida, pero como es GET, Apps Script llama a doGet
+                const response = await fetchWithRetry(SCRIPT_URL_SUBIDA, { method: 'GET' });
+                const result = await response.json();
+
+                if (result.status === 'success' && Array.isArray(result.files)) {
+                    setPhotos(result.files);
                 } else {
-                    loadingMessage.textContent = "Esperando la primera foto...";
-                    loadingMessage.classList.remove('hidden');
+                    // Si doGet retorna un error (como no encontrar la carpeta), lo atrapamos
+                    throw new Error(result.message || "La respuesta de Apps Script no es válida.");
                 }
             } catch (error) {
-                console.error("Error al obtener fotos:", error);
-                // Si el error no es HTTP, es un error de red o CORS/JSON malformado
-                if (!loadingMessage.innerHTML.includes("ERROR HTTP")) {
-                    loadingMessage.innerHTML = `<h4>Error de Red/JSON</h4><p>Asegúrate de que el Apps Script devuelva JSON válido y que no haya problemas de red.</p>`;
+                console.error("Error al cargar fotos:", error);
+                // Aquí sí mostramos el error de configuración o red
+                 setModalError({ 
+                    title: "Error al Cargar Galería", 
+                    message: "No se pudo conectar con el servidor. Verifica que la URL de Apps Script esté configurada correctamente. (Detalle: " + error.message + ")"
+                });
+                setPhotos([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // ====================================================================
+        // VISTAS DE LA APLICACIÓN
+        // ====================================================================
+
+        /**
+         * Vista Principal (Cámara/Galería Selector)
+         */
+        const HomeView = ({ setView }) => {
+            return (
+                <div className="flex flex-col items-center justify-center p-6 text-center animate-fadein">
+                    <h1 className="playfair-title text-5xl font-extrabold text-gray-800 tracking-tight mb-3">
+                        Nuestra Boda
+                    </h1>
+                    <p className="text-sm tracking-widest text-gray-500 uppercase mb-8">
+                        Álbum Colaborativo
+                    </p>
+                    <h2 className="text-2xl font-semibold text-gray-700 mb-10">
+                        ¡Comparte tus fotos!
+                    </h2>
+
+                    <div className="flex space-x-4 w-full max-w-sm">
+                        <button 
+                            onClick={() => setView('camera')} 
+                            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 transform hover:scale-[1.02] active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 5-4z" />
+                            </svg>
+                            Cámara
+                        </button>
+                        <button 
+                            onClick={() => setView('gallery')} 
+                            className="flex-1 border-2 border-amber-500 text-amber-600 hover:bg-amber-50 transition duration-200 font-bold py-3 px-4 rounded-xl shadow-lg transform hover:scale-[1.02] active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline mr-2 -mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Galería
+                        </button>
+                    </div>
+
+                    <p className="mt-12 text-sm text-gray-500">
+                        Gracias por acompañarnos en este día tan especial.
+                    </p>
+                </div>
+            );
+        };
+
+        /**
+         * Vista de Cámara y Subida de Archivos
+         */
+        const CameraView = ({ setView, setModalError, triggerFetch }) => {
+            const [file, setFile] = useState(null);
+            const [previewUrl, setPreviewUrl] = useState('');
+            const [uploadStatus, setUploadStatus] = useState({ loading: false, message: '' });
+
+            // Carga la foto seleccionada y muestra una previsualización
+            const handleFileChange = (event) => {
+                const selectedFile = event.target.files[0];
+                if (selectedFile) {
+                    setFile(selectedFile);
+                    setPreviewUrl(URL.createObjectURL(selectedFile));
                 }
-                loadingMessage.classList.remove('hidden');
+            };
+
+            // Maneja la subida
+            const handleUpload = async () => {
+                if (file) {
+                    const success = await uploadFileToDrive(file, setUploadStatus, setModalError);
+                    if (success) {
+                        setFile(null);
+                        setPreviewUrl('');
+                        // Refresca la galería después de la subida
+                        triggerFetch(); 
+                    }
+                }
+            };
+
+            // Limpia la URL de previsualización al salir
+            useEffect(() => {
+                return () => {
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                };
+            }, [previewUrl]);
+
+            if (uploadStatus.loading) {
+                return <LoadingScreen message={uploadStatus.message} type={uploadStatus.message.includes('éxito') ? 'success' : 'loading'} />;
             }
-        }
+
+            return (
+                <div className="p-4 sm:p-8 flex flex-col h-full animate-fadein">
+                    <button 
+                        onClick={() => setView('home')} 
+                        className="self-start text-amber-600 hover:text-amber-800 mb-4 flex items-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Volver
+                    </button>
+
+                    <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+                        Sube tu Foto
+                    </h1>
+
+                    <div className="flex flex-col items-center justify-center flex-grow">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleFileChange} 
+                            id="photo-upload" 
+                            className="hidden"
+                            // Captura directamente desde la cámara en móviles
+                            capture="environment" 
+                        />
+                        
+                        {!previewUrl && (
+                            <label 
+                                htmlFor="photo-upload" 
+                                className="w-full max-w-sm h-64 border-4 border-dashed border-amber-300 rounded-xl flex flex-col items-center justify-center text-center text-amber-600 cursor-pointer hover:border-amber-500 transition duration-200"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.865-1.297A2 2 0 0111.075 4h1.85a2 2 0 011.664.89l.865 1.297a2 2 0 001.664.89H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <p className="font-semibold">Toca para tomar una foto</p>
+                                <p className="text-sm">o selecciona desde la galería</p>
+                            </label>
+                        )}
+
+                        {previewUrl && (
+                            <div className="w-full max-w-sm">
+                                <div className="h-72 w-full mb-4 rounded-xl overflow-hidden shadow-xl border-4 border-white">
+                                    <img src={previewUrl} alt="Previsualización" className="object-cover w-full h-full" />
+                                </div>
+                                <div className="flex space-x-3">
+                                    <button 
+                                        onClick={() => { setFile(null); setPreviewUrl(''); }}
+                                        className="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-100 font-bold py-3 px-4 rounded-xl transition duration-200"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        onClick={handleUpload}
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200"
+                                        disabled={uploadStatus.loading}
+                                    >
+                                        Subir Foto
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
 
         /**
-         * 2. Renders all fetched photos into the carousel structure.
+         * Componente de una Tarjeta de Foto
          */
-        function renderCarousel() {
-            carouselInner.innerHTML = '';
-            photos.forEach((photo, index) => {
-                const slide = document.createElement('div');
-                slide.className = 'slide';
-                slide.dataset.index = index;
-                
-                const image = document.createElement('img');
-                image.className = 'slide-image';
-                // Añadimos un timestamp para forzar al navegador a cargar la última versión de la imagen
-                // El campo 'date' del JSON se usa como timestamp para forzar la recarga
-                image.src = photo.url + (photo.url.includes('?') ? '&' : '?') + 'timestamp=' + photo.date; 
-                image.alt = `Foto de la boda ${index + 1}`;
-                
-                slide.appendChild(image);
-                carouselInner.appendChild(slide);
-            });
-            // Reiniciar el carrusel para mostrar la primera foto
-            currentIndex = 0;
-            updateCarousel();
-        }
+        const PhotoCard = ({ url, onClick }) => (
+            <div className="photo-card rounded-xl shadow-lg bg-gray-100" onClick={onClick}>
+                <img 
+                    src={url} 
+                    alt="Foto de la boda" 
+                    loading="lazy"
+                    className="rounded-xl"
+                />
+            </div>
+        );
 
         /**
-         * 3. Moves the carousel to the next slide and updates the view.
+         * Vista de la Galería de Fotos
          */
-        function updateCarousel() {
-            if (photos.length === 0) return;
+        const GalleryView = ({ setView, photos, isLoading, triggerFetch, setModalError }) => {
+            const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-            // Asegurar que el índice esté dentro de los límites
-            currentIndex = currentIndex % photos.length;
+            useEffect(() => {
+                triggerFetch();
+            }, [triggerFetch]);
 
-            // Calcular el desplazamiento necesario (100vw por cada diapositiva)
-            const offset = -currentIndex * 100;
-            carouselInner.style.transform = `translateX(${offset}vw)`;
-            
-            // Efecto de escala en la imagen activa
-            document.querySelectorAll('.slide-image').forEach(img => img.classList.remove('active'));
-            const activeSlide = carouselInner.querySelector(`.slide[data-index="${currentIndex}"] img`);
-            if (activeSlide) {
-                activeSlide.classList.add('active');
-            }
-        }
+            const PhotoGrid = useMemo(() => {
+                if (isLoading) {
+                    // Muestra 8 esqueletos de carga
+                    return Array(8).fill(0).map((_, i) => (
+                        <div key={i} className="photo-card rounded-xl shadow-lg photo-card-skeleton"></div>
+                    ));
+                }
 
-        /**
-         * 4. Starts the automatic slide show and photo refresh timer.
-         */
-        function startCarousel() {
-            if (slideInterval) clearInterval(slideInterval);
-            
-            slideInterval = setInterval(() => {
-                currentIndex++;
-                updateCarousel();
-            }, SLIDE_DURATION_MS);
-        }
+                if (photos.length === 0) {
+                    return (
+                        <div className="col-span-full text-center p-10 bg-gray-50 rounded-xl">
+                            <p className="text-xl text-gray-500 font-semibold mb-2">¡Aún no hay fotos!</p>
+                            <p className="text-gray-400">Sé el primero en subir una desde la sección Cámara.</p>
+                        </div>
+                    );
+                }
 
-        // --- Inicio de la Aplicación ---
-        
-        // 1. Cargar las fotos iniciales
-        fetchPhotos();
+                return photos.map((photo, index) => (
+                    <PhotoCard 
+                        key={index} 
+                        url={photo.fileUrl} 
+                        onClick={() => setSelectedPhoto(photo.fileUrl)} 
+                    />
+                ));
+            }, [photos, isLoading]);
 
-        // 2. Establecer el intervalo para refrescar las fotos (recargar las nuevas)
-        setInterval(fetchPhotos, REFRESH_RATE_MS);
-        
-        // 3. Manejar el redimensionamiento de la ventana para mantener el diseño
-        window.addEventListener('resize', updateCarousel);
 
+            return (
+                <div className="p-4 sm:p-8 flex flex-col animate-fadein">
+                    <button 
+                        onClick={() => setView('home')} 
+                        className="self-start text-amber-600 hover:text-amber-800 mb-4 flex items-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Volver
+                    </button>
+                    
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800">
+                            Galería de Recuerdos
+                        </h1>
+                        <button 
+                            onClick={triggerFetch}
+                            className="text-gray-500 hover:text-amber-600 transition duration-150"
+                            title="Recargar fotos"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.926 8.926 0 0020 12a9 9 0 10-2.354 5.646" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div className="photo-grid">
+                        {PhotoGrid}
+                    </div>
+
+                    {selectedPhoto && (
+                        <Modal title="Vista Previa" onClose={() => setSelectedPhoto(null)}>
+                            <img src={selectedPhoto} alt="Foto en grande" className="max-w-full h-auto rounded-lg shadow-2xl" />
+                            <a 
+                                href={selectedPhoto} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="block mt-4 text-center text-amber-600 hover:text-amber-800 font-semibold transition duration-150"
+                            >
+                                Abrir en nueva pestaña
+                            </a>
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
+
+        // ====================================================================
+        // COMPONENTE PRINCIPAL
+        // ====================================================================
+
+        const App = () => {
+            const [view, setView] = useState('home'); // 'home', 'camera', 'gallery'
+            const [photos, setPhotos] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [modalError, setModalError] = useState(null);
+
+            // useCallback para evitar que se cree una nueva función en cada render
+            const triggerFetch = useCallback(() => {
+                fetchPhotos(setPhotos, setIsLoading, setModalError);
+            }, []);
+
+            // Mapeo de vistas
+            const CurrentView = useMemo(() => {
+                switch (view) {
+                    case 'camera':
+                        return <CameraView setView={setView} setModalError={setModalError} triggerFetch={triggerFetch} />;
+                    case 'gallery':
+                        return <GalleryView setView={setView} photos={photos} isLoading={isLoading} triggerFetch={triggerFetch} setModalError={setModalError} />;
+                    case 'home':
+                    default:
+                        return <HomeView setView={setView} />;
+                }
+            }, [view, photos, isLoading, triggerFetch]);
+
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 min-h-[70vh] flex flex-col">
+                        {CurrentView}
+                    </div>
+                    
+                    {modalError && (
+                        <Modal 
+                            title={modalError.title} 
+                            message={modalError.message} 
+                            onClose={() => setModalError(null)} 
+                        />
+                    )}
+
+                     {/* Mensaje de error de configuración solo en la consola si la URL no es la correcta */}
+                    {!SCRIPT_URL_SUBIDA.includes('exec') && console.error("CRÍTICO: La constante SCRIPT_URL_SUBIDA en index.html no contiene la URL final del Apps Script.")}
+                </div>
+            );
+        };
+
+        root.render(<App />);
     </script>
 </body>
 </html>
