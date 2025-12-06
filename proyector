@@ -206,7 +206,7 @@
         import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =========================================================================
-        //  1. CONFIGURACIÓN DE FIREBASE (¡SUS DATOS YA INSERTADOS!)
+        //  1. CONFIGURACIÓN DE FIREBASE (TUS DATOS YA INSERTADOS)
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
@@ -219,7 +219,7 @@
         // =========================================================================
 
         const appId = 'album-boda-fotos'; 
-        const SLIDESHOW_INTERVAL = 5000; 
+        const SLIDESHOW_INTERVAL = 5000; // 5 Segundos por foto
 
         // Inicialización
         let app, db, auth;
@@ -231,10 +231,9 @@
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
-            statusText.textContent = "Conectando...";
         } catch (e) {
             console.error(e);
-            statusText.textContent = "Error de configuración.";
+            statusText.textContent = "Error de configuración de Firebase.";
             statusText.classList.add('text-red-500');
             return; // Detiene la ejecución si falla la inicialización
         }
@@ -329,6 +328,7 @@
                     console.log("Esperando documento...");
                 }
             }, (error) => {
+                // Este es el error que tienes que solucionar: Permisos
                 console.error("Error Firestore:", error);
                 statusText.textContent = "ERROR DE PERMISOS";
                 errorDetails.textContent = "Ve a Firebase Console > Firestore > Reglas y publica las reglas de seguridad.";
@@ -341,7 +341,6 @@
             if (user) {
                 initListener();
             } else {
-                // Si la autenticación falla, mostramos el error de la consola
                 signInAnonymously(auth).catch(e => {
                     console.error(e);
                     statusText.textContent = "Error de autenticación.";
@@ -349,7 +348,21 @@
             }
         });
 
-        // El resto del código de recepción de Apps Script fue eliminado para simplificar
+        // --- RECEPCIÓN DESDE APPS SCRIPT (Para compatibilidad) ---
+        window.handleAppsScriptData = async (event) => {
+            if (!event.url) return;
+            try {
+                const docRef = doc(db, ...PHOTO_DOC_REF_PATH);
+                const docSnap = await getDoc(docRef);
+                const newEntry = { url: event.url, userId: 'Invitado', timestamp: Timestamp.now() };
+                
+                if (docSnap.exists()) {
+                    await setDoc(docRef, { items: arrayUnion(newEntry) }, { merge: true });
+                } else {
+                    await setDoc(docRef, { items: [newEntry] });
+                }
+            } catch (e) { console.error("Error Firestore:", e); }
+        };
     </script>
 </body>
 </html>
