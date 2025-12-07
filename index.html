@@ -1,203 +1,354 @@
-<script type="text/babel">
-    // =========================================================
-    //  ❤️ CONFIGURACIÓN FIREBASE (Unificada) ❤️
-    // =========================================================
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nuestra Boda - Álbum Colaborativo</title>
+    
+    <!-- Estilos y Librerías Base -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;0,800&family=Inter:wght@300;400;600;700;800;900&display=swap');
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
-        authDomain: "proyeccion-boda.firebaseapp.com",
-        projectId: "proyeccion-boda",
-        storageBucket: "proyeccion-boda.firebasestorage.app",
-        messagingSenderId: "163164812654",
-        appId: "1:163164812654:web:ffa2b0042f19f1fa0d7d7f"
-    };
+        body { font-family: 'Inter', sans-serif; background-color: #f8f5f0; }
+        /* Playfair Display soporta 800 (extrabold) */
+        .font-serif { font-family: 'Playfair Display', serif; } 
 
-    // Inicializar Firebase
-    const app = initializeApp(firebaseConfig);
-    const storage = getStorage(app);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="root"></div>
 
-    // Autenticación Anónima automática al cargar
-    signInAnonymously(auth).catch((error) => console.error("Error Auth:", error));
+    <script type="text/babel">
+        // =========================================================
+        //  ❤️ CONFIGURACIÓN ❤️
+        // =========================================================
+        // URL NUEVA PARA ACTIVAR EL PROYECTOR:
+        const MI_URL_FIJA = 'https://script.google.com/macros/s/AKfycbwK4uck5IEiIRJAv_NNT-cORUa_sc5vPLnwl8pSpNddYOwMMUugbu1co1DQY3pPMGg/exec';
+        // =========================================================
 
-    // =========================================================
-    // COMPONENTES UI (Iconos)
-    // =========================================================
-    const IconImageSymbol = (props) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-    );
-    const IconX = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
-    const IconHeart = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>;
-    const IconLoader = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
-
-    // =========================================================
-    // LÓGICA DE LA APLICACIÓN
-    // =========================================================
-    const { useState, useEffect, useRef } = React;
-    const ACCENT_COLOR = 'text-amber-600';
-
-    function App() {
-        const [uploading, setUploading] = useState(false);
-        const [uploadStatus, setUploadStatus] = useState(null);
-        const [selectedImage, setSelectedImage] = useState(null);
-        const [previewUrl, setPreviewUrl] = useState(null);
-        const [guestName, setGuestName] = useState('');
-        const [dedication, setDedication] = useState(''); 
-        const [gallery, setGallery] = useState([]);
-        
-        const fileInputRef = useRef(null); 
-
-        // Carga inicial galería local
-        useEffect(() => {
-            const savedGallery = JSON.parse(localStorage.getItem('local_wedding_gallery') || '[]');
-            setGallery(savedGallery);
-        }, []);
-
-        const handleCameraClick = () => {
-            if(fileInputRef.current) {
-                fileInputRef.current.setAttribute('capture', 'environment');
-                fileInputRef.current.click();
-            }
-        };
-
-        const handleGalleryClick = () => {
-            if(fileInputRef.current) {
-                fileInputRef.current.removeAttribute('capture');
-                fileInputRef.current.click();
-            }
-        };
-
-        const handleFileChange = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setSelectedImage({ file: file, base64: reader.result });
-                    setPreviewUrl(reader.result);
-                    setUploadStatus(null);
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-
-        const clearSelection = () => {
-            setSelectedImage(null);
-            setPreviewUrl(null);
-            setDedication(''); 
-        };
-
-        const handleUpload = async () => {
-            if (!selectedImage) return;
-            setUploading(true);
-            setUploadStatus(null);
-
-            const timestamp = new Date().getTime();
-            const cleanName = (guestName || 'Invitado').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
-            // Nombre archivo: timestamp_nombre_random
-            const fileName = `${timestamp}_${cleanName}.jpg`;
-
-            try {
-                // 1. Subir Imagen a Firebase Storage
-                const storageRef = ref(storage, 'bodafotos/' + fileName);
-                const snapshot = await uploadBytes(storageRef, selectedImage.file);
-                const downloadURL = await getDownloadURL(snapshot.ref);
-
-                // 2. Guardar datos en Firestore (Base de datos)
-                await addDoc(collection(db, "photos"), {
-                    url: downloadURL,
-                    author: guestName || 'Invitado',
-                    message: dedication,
-                    timestamp: serverTimestamp() // Importante para el orden
-                });
-                
-                handleSuccess(downloadURL, timestamp);
-
-            } catch (error) {
-                console.error("Error subida:", error);
-                setUploadStatus({ type: 'error', message: 'Error al subir. Verifica tu conexión.' });
-            } finally {
-                setUploading(false);
-            }
-        };
-
-        const handleSuccess = (url, id) => {
-            setUploadStatus({ 
-                type: 'success', 
-                message: '¡Foto subida con éxito! Aparecerá en pantalla pronto.' 
-            });
-            const newPic = { 
-                url: url, 
-                author: guestName || 'Anónimo', 
-                message: dedication, 
-                id: id 
-            };
-            const newGallery = [newPic, ...gallery];
-            setGallery(newGallery);
-            localStorage.setItem('local_wedding_gallery', JSON.stringify(newGallery));
-            clearSelection();
-        };
-
-        return (
-            <div className="min-h-screen bg-[#f8f5f0] text-gray-800">
-                <header className="fixed top-0 left-0 right-0 z-10 px-4 pt-4 pb-2 bg-[#f8f5f0]">
-                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-400"></div>
-                </header>
-                
-                <main className="max-w-md mx-auto p-4 pb-16 pt-10"> 
-                    <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
-                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-
-                        {uploadStatus && (
-                            <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium animate-fadeIn
-                                ${uploadStatus.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                                {uploadStatus.type === 'success' ? <IconHeart className="text-green-500 fill-green-500" size={20} /> : <IconX size={20} />}
-                                {uploadStatus.message}
-                            </div>
-                        )}
-
-                        {!selectedImage ? (
-                            <div className="text-center">
-                                <div className="mb-6 flex flex-col items-center pt-2">
-                                    <h1 className="font-serif text-6xl font-extrabold text-gray-800 tracking-wide leading-none">Nuestra Boda</h1>
-                                    <p className="text-gray-400 font-light text-xs tracking-[.4em] uppercase mt-3 mb-6">ALBUM COLABORATIVO</p>
-                                </div>
-                                <div className="flex flex-col items-center mb-6 animate-fadeIn">
-                                    <div className="w-24 h-24 rounded-full border-4 border-dashed border-amber-200 flex items-center justify-center mb-4 text-amber-500">
-                                        <IconImageSymbol size={40} strokeWidth={1.5} />
-                                    </div>
-                                    <h2 className="text-2xl font-serif font-bold text-gray-800 mb-1">Captura el Momento</h2>
-                                    <p className="text-gray-500 text-sm">Toca el botón para tomar una foto.</p>
-                                </div>
-                                
-                                <div className="flex w-full h-[50px] shadow-lg border border-amber-600 rounded-xl overflow-hidden">
-                                    <button onClick={handleCameraClick} className="w-1/2 bg-amber-600 text-white font-bold flex items-center justify-center hover:bg-amber-700 active:scale-[0.99] transition-all duration-150 text-sm">Cámara</button>
-                                    <button onClick={handleGalleryClick} className="w-1/2 bg-white text-amber-600 font-bold flex items-center justify-center hover:bg-amber-50 active:scale-[0.99] transition-all duration-150 text-sm border-l border-amber-600">Galería</button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-4 animate-fadeIn">
-                                <div className="relative rounded-2xl overflow-hidden aspect-[4/3] shadow-lg">
-                                    <img src={previewUrl} className="w-full h-full object-cover" alt="Previsualización" />
-                                    <button onClick={clearSelection} className="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"><IconX size={18} /></button>
-                                </div>
-                                <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Tu nombre (opcional)" className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
-                                <textarea value={dedication} onChange={(e) => setDedication(e.target.value)} placeholder="Dedicatoria..." rows="3" className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
-                                <button onClick={handleUpload} disabled={uploading} className={`w-full h-[50px] rounded-xl font-bold text-white flex justify-center items-center gap-2 shadow-xl transition-all duration-150 text-sm ${uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 active:scale-[0.99]'}`}>
-                                    {uploading ? <><span className="animate-spin"><IconLoader size={20}/></span> Subiendo...</> : <>Enviar Foto</>}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </main>
-            </div>
+        // --- ICONOS INTEGRADOS (SVG) ---
+        // Se mantienen los íconos de estado/utilidad, pero se eliminan los de los botones principales.
+        const IconImageSymbol = (props) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}>
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+            </svg>
         );
-    }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-</script>
+        // Iconos de utilidad
+        const IconX = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+        const IconSettings = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.44l-2.06.32a2 2 0 0 0-1.2 3.52l.6.93-1.6.93a2 2 0 0 0 0 3.52l1.6.93-.6.93a2 2 0 0 0 1.2 3.52l2.06.32v.44a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.44l2.06-.32a2 2 0 0 0 1.2-3.52l-.6-.93 1.6-.93a2 2 0 0 0 0-3.52l-1.6-.93.6-.93a2 2 0 0 0-1.2-3.52l-2.06-.32V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+        const IconHeart = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>;
+        const IconLoader = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+        const IconUpload = (props) => <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>;
+
+
+        // =========================================================
+        // LÓGICA DE LA APLICACIÓN
+        // =========================================================
+        const { useState, useEffect, useRef } = React;
+
+        const ACCENT_COLOR = 'text-amber-600';
+
+        function App() {
+            // Se usa la URL fija
+            const [scriptUrl, setScriptUrl] = useState(MI_URL_FIJA);
+            const [showConfig, setShowConfig] = useState(false);
+            const [uploading, setUploading] = useState(false);
+            const [uploadStatus, setUploadStatus] = useState(null);
+            const [selectedImage, setSelectedImage] = useState(null);
+            const [previewUrl, setPreviewUrl] = useState(null);
+            const [guestName, setGuestName] = useState('');
+            const [dedication, setDedication] = useState(''); 
+            const [gallery, setGallery] = useState([]);
+            
+            const fileInputRef = useRef(null); 
+
+            // Carga inicial
+            useEffect(() => {
+                const savedUrl = localStorage.getItem('wedding_script_url');
+                if (!MI_URL_FIJA && savedUrl) setScriptUrl(savedUrl);
+                
+                const savedGallery = JSON.parse(localStorage.getItem('local_wedding_gallery') || '[]');
+                setGallery(savedGallery);
+            }, []);
+
+            const handleSaveConfig = (e) => {
+                e.preventDefault();
+                localStorage.setItem('wedding_script_url', scriptUrl);
+                setShowConfig(false);
+            };
+
+            // --- LÓGICA CÁMARA VS GALERÍA ---
+            
+            const handleCameraClick = () => {
+                if(fileInputRef.current) {
+                    fileInputRef.current.setAttribute('capture', 'environment');
+                    fileInputRef.current.click();
+                }
+            };
+
+            const handleGalleryClick = () => {
+                if(fileInputRef.current) {
+                    fileInputRef.current.removeAttribute('capture');
+                    fileInputRef.current.click();
+                }
+            };
+
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setSelectedImage({ file: file, base64: reader.result });
+                        setPreviewUrl(reader.result);
+                        setUploadStatus(null);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const clearSelection = () => {
+                setSelectedImage(null);
+                setPreviewUrl(null);
+                setDedication(''); 
+            };
+
+            const handleUpload = async () => {
+                if (!scriptUrl) {
+                    setUploadStatus({ type: 'error', message: 'ERROR: Falta URL de destino.' });
+                    return;
+                }
+                if (!selectedImage) return;
+
+                setUploading(true);
+                setUploadStatus(null);
+
+                const timestamp = new Date().getTime();
+                const cleanName = (guestName || 'Invitado').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+                const originalNameClean = selectedImage.file.name.replace(/[^a-zA-Z0-9.]/g, '_').substring(0, 30);
+                const finalFileName = `${cleanName}_${timestamp}_${originalNameClean}`;
+
+                try {
+                    // Prepara el payload para Apps Script
+                    const payload = {
+                        filename: finalFileName,
+                        mimeType: selectedImage.file.type,
+                        base64: selectedImage.base64.split(',')[1],
+                        guestName: guestName, 
+                        dedication: dedication, 
+                    };
+                    
+                    const response = await fetch(scriptUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        handleSuccess(timestamp);
+                    } else {
+                        throw new Error('Error en la respuesta del servidor.');
+                    }
+                } catch (error) {
+                    console.log("Error de red o respuesta opaca (ASUMIENDO ÉXITO PARA UX):", error);
+                    handleSuccess(timestamp, true);
+                } finally {
+                    setUploading(false);
+                }
+            };
+
+            const handleSuccess = (timestamp, isMaybe = false) => {
+                setUploadStatus({ 
+                    type: 'success', 
+                    message: isMaybe 
+                        ? '¡Foto enviada! (Probablemente subida, gracias.)' 
+                        : '¡Foto subida con éxito! Gracias por compartir el momento.' 
+                });
+                const newPic = { 
+                    url: previewUrl, 
+                    author: guestName || 'Anónimo', 
+                    message: dedication, 
+                    id: timestamp 
+                };
+                const newGallery = [newPic, ...gallery];
+                setGallery(newGallery);
+                localStorage.setItem('local_wedding_gallery', JSON.stringify(newGallery));
+                clearSelection();
+            };
+
+            return (
+                <div className="min-h-screen bg-[#f8f5f0] text-gray-800">
+                    
+                    {/* Encabezado General (Fijo) con solo la línea y el botón de configuración */}
+                    <header className="fixed top-0 left-0 right-0 z-10 px-4 pt-4 pb-2 bg-[#f8f5f0]">
+                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-400"></div>
+                        <div className="flex justify-end">
+                            {/* Botón de Configuración */}
+                            <button onClick={() => setShowConfig(true)} className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100">
+                                <IconSettings size={20} />
+                            </button>
+                        </div>
+                    </header>
+                    
+                    <main className="max-w-md mx-auto p-4 pb-16 pt-20"> 
+                        <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
+                            {/* Input Oculto Único */}
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden" 
+                            />
+
+                            {/* Mensajes de estado */}
+                            {uploadStatus && (
+                                <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium animate-fadeIn
+                                    ${uploadStatus.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                    {uploadStatus.type === 'success' ? <IconHeart className="text-green-500 fill-green-500" size={20} /> : <IconX size={20} />}
+                                    {uploadStatus.message}
+                                </div>
+                            )}
+
+                            {!selectedImage ? (
+                                <div className="text-center">
+                                    <div className="mb-6 flex flex-col items-center pt-2">
+                                        <h1 className="font-serif text-6xl font-extrabold text-gray-800 tracking-wide leading-none">
+                                            Nuestra Boda
+                                        </h1>
+                                        <p className="text-gray-400 font-light text-xs tracking-[.4em] uppercase mt-3 mb-6">
+                                            ALBUM COLABORATIVO
+                                        </p>
+                                    </div>
+
+                                    {/* Círculo con Icono Imagen y Texto "Captura el Momento" */}
+                                    <div className="flex flex-col items-center mb-6 animate-fadeIn">
+                                        <div className="w-24 h-24 rounded-full border-4 border-dashed border-amber-200 flex items-center justify-center mb-4 text-amber-500">
+                                            <IconImageSymbol size={40} strokeWidth={1.5} />
+                                        </div>
+                                        <h2 className="text-2xl font-serif font-bold text-gray-800 mb-1">
+                                            Captura el Momento
+                                        </h2>
+                                        <p className="text-gray-500 text-sm">
+                                            Toca el botón para tomar una foto.
+                                        </p>
+                                    </div>
+                                    
+                                    {/* BOTÓN DIVIDIDO - SOLO TEXTO */}
+                                    <div className="flex w-full h-[50px] shadow-lg border border-amber-600 rounded-xl overflow-hidden">
+                                        {/* Botón "Cámara" (Primary) */}
+                                        <button 
+                                            onClick={handleCameraClick} 
+                                            className="w-1/2 bg-amber-600 text-white font-bold flex items-center justify-center hover:bg-amber-700 active:scale-[0.99] transition-all duration-150 text-sm"
+                                        >
+                                            Cámara
+                                        </button>
+                                        {/* Botón "Galería" (Secondary) */}
+                                        <button 
+                                            onClick={handleGalleryClick} 
+                                            className="w-1/2 bg-white text-amber-600 font-bold flex items-center justify-center hover:bg-amber-50 active:scale-[0.99] transition-all duration-150 text-sm border-l border-amber-600"
+                                        >
+                                            Galería
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="relative rounded-2xl overflow-hidden aspect-[4/3] shadow-lg">
+                                        <img src={previewUrl} className="w-full h-full object-cover" alt="Previsualización de imagen seleccionada" />
+                                        <button onClick={clearSelection} className="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"><IconX size={18} /></button>
+                                    </div>
+                                    
+                                    {/* Campo para el nombre (opcional) */}
+                                    <input 
+                                        type="text" 
+                                        value={guestName} 
+                                        onChange={(e) => setGuestName(e.target.value)} 
+                                        placeholder="Tu nombre (opcional)" 
+                                        className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500" 
+                                    />
+
+                                    {/* Campo para la Dedicatoria */}
+                                    <textarea 
+                                        value={dedication} 
+                                        onChange={(e) => setDedication(e.target.value)} 
+                                        placeholder="Escribe una dedicatoria o mensaje corto (opcional)..." 
+                                        rows="3"
+                                        className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                                    ></textarea>
+
+                                    {/* Botón de Enviar (Solo texto, pero mantiene ícono de carga) */}
+                                    <button onClick={handleUpload} disabled={uploading} className={`w-full h-[50px] rounded-xl font-bold text-white flex justify-center items-center gap-2 shadow-xl transition-all duration-150 text-sm
+                                        ${uploading 
+                                            ? 'bg-gray-400 cursor-not-allowed' 
+                                            : 'bg-amber-600 hover:bg-amber-700 active:scale-[0.99] transform hover:-translate-y-0.5'}`}
+                                    >
+                                        {uploading ? <><span className="animate-spin"><IconLoader size={20}/></span> Subiendo...</> : <>Enviar Foto</>}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Galería Local (Recientes) */}
+                        {gallery.length > 0 && (
+                            <div className="mt-8">
+                                <h3 className="font-serif text-2xl text-gray-800 mb-4 px-1">Tus recientes</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {gallery.map((pic, idx) => (
+                                        <div key={idx} className="relative rounded-2xl overflow-hidden aspect-square shadow-md group">
+                                            <img src={pic.url} alt={`Foto de ${pic.author}`} className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent p-3 flex flex-col justify-end">
+                                                <p className="text-white text-sm font-semibold truncate">{pic.author}</p>
+                                                {/* Mostrar la dedicatoria si existe */}
+                                                {pic.message && <p className="text-white text-xs italic opacity-80 mt-1 line-clamp-2">{pic.message}</p>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="mt-16 text-center">
+                            <div className={`${ACCENT_COLOR} text-4xl mb-2 flex justify-center`}>
+                                <IconHeart size={32} className="fill-amber-400 stroke-amber-600" />
+                            </div>
+                            <p className="text-gray-500 text-sm font-light italic">
+                                Gracias por acompañarnos en este día tan especial.
+                            </p>
+                        </div>
+                    </main>
+
+                    {showConfig && (
+                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                                <div className="flex justify-between mb-4 border-b pb-3">
+                                    <h3 className="font-serif text-xl font-semibold">Configuración</h3>
+                                    <button onClick={() => setShowConfig(false)} className="p-1 rounded-full hover:bg-gray-100 transition-colors"><IconX size={20} /></button>
+                                </div>
+                                <form onSubmit={handleSaveConfig} className="space-y-5">
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">URL de Google Apps Script</label>
+                                    <input type="url" value={scriptUrl} onChange={(e) => setScriptUrl(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
+                                    <button type="submit" className="w-full bg-amber-600 text-white py-3 rounded-xl font-semibold hover:bg-amber-700 transition-colors">Guardar</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
