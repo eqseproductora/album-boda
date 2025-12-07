@@ -181,129 +181,123 @@
             <img id="current-photo" src="" alt="Momento capturado">
         </div>
 
-        <div class="caption-bar">
-            <div id="author-text"></div>
-            <div id="message-text"></div>
-        </div>
-    </div>
+        <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+            import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+            import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+            // CONFIGURACIÓN DE FIREBASE
+            const firebaseConfig = {
+                apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
+                authDomain: "proyeccion-boda.firebaseapp.com",
+                projectId: "proyeccion-boda",
+                storageBucket: "proyeccion-boda.firebasestorage.app",
+                messagingSenderId: "163164812654",
+                appId: "1:163164812654:web:ffa2b0042f19f1fa0d7d7f"
+            };
 
-        // CONFIGURACIÓN DE FIREBASE
-        const firebaseConfig = {
-            apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
-            authDomain: "proyeccion-boda.firebaseapp.com",
-            projectId: "proyeccion-boda",
-            storageBucket: "proyeccion-boda.firebasestorage.app",
-            messagingSenderId: "163164812654",
-            appId: "1:163164812654:web:ffa2b0042f19f1fa0d7d7f"
-        };
+            const SLIDESHOW_INTERVAL = 5000; 
 
-        const SLIDESHOW_INTERVAL = 5000; 
+            let app, db, auth;
+            const statusText = document.getElementById('status-text');
+            const errorDetails = document.getElementById('error-details');
+            const loadingOverlay = document.getElementById('loading-overlay');
 
-        let app, db, auth;
-        const statusText = document.getElementById('status-text');
-        const errorDetails = document.getElementById('error-details');
-        const loadingOverlay = document.getElementById('loading-overlay');
+            const imgEl = document.getElementById('current-photo');
+            const authorEl = document.getElementById('author-text');
+            const messageEl = document.getElementById('message-text');
 
-        const imgEl = document.getElementById('current-photo');
-        const authorEl = document.getElementById('author-text');
-        const messageEl = document.getElementById('message-text');
-
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            statusText.textContent = "Conectando...";
-        } catch (e) {
-            console.error(e);
-            statusText.textContent = "Error de config";
-        }
-
-        let photos = [];
-        let currentIndex = 0;
-        let slideTimer = null;
-
-        function startSlideshow() {
-            if (slideTimer) clearInterval(slideTimer);
-            if (photos.length > 0) displayCurrentPhoto();
-
-            slideTimer = setInterval(() => {
-                if (photos.length > 0) {
-                    currentIndex = (currentIndex + 1) % photos.length;
-                    displayCurrentPhoto();
-                }
-            }, SLIDESHOW_INTERVAL);
-        }
-
-        function displayCurrentPhoto() {
-            if (photos.length === 0) return;
-            const photo = photos[currentIndex];
-            
-            imgEl.style.opacity = 0;
-            imgEl.classList.remove('ken-burns');
-
-            setTimeout(() => {
-                imgEl.src = photo.url;
-                const user = photo.author && photo.author !== 'Invitado' ? `📸 ${photo.author}` : '';
-                authorEl.textContent = user;
-                messageEl.textContent = photo.message || ""; 
-
-                imgEl.onload = () => {
-                    loadingOverlay.classList.add('hidden');
-                    imgEl.style.opacity = 1;
-                    imgEl.classList.add('ken-burns');
-                };
-            }, 800); 
-        }
-
-        function updatePhotosList(newPhotos) {
-            photos = newPhotos;
-            if (photos.length > 0) {
-                loadingOverlay.classList.add('hidden');
-                if (!slideTimer) {
-                    currentIndex = 0;
-                    startSlideshow();
-                }
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                statusText.textContent = "Conectando...";
+            } catch (e) {
+                console.error(e);
+                statusText.textContent = "Error de config";
             }
-        }
 
-        function initListener() {
-            // Escuchar colección 'photos' ordenadas por fecha
-            const q = query(collection(db, "photos"), orderBy("timestamp", "desc"));
-            
-            onSnapshot(q, (snapshot) => {
-                const newPhotos = [];
-                snapshot.forEach((doc) => {
-                    newPhotos.push({ id: doc.id, ...doc.data() });
-                });
+            let photos = [];
+            let currentIndex = 0;
+            let slideTimer = null;
+
+            function startSlideshow() {
+                if (slideTimer) clearInterval(slideTimer);
+                if (photos.length > 0) displayCurrentPhoto();
+
+                slideTimer = setInterval(() => {
+                    if (photos.length > 0) {
+                        currentIndex = (currentIndex + 1) % photos.length;
+                        displayCurrentPhoto();
+                    }
+                }, SLIDESHOW_INTERVAL);
+            }
+
+            function displayCurrentPhoto() {
+                if (photos.length === 0) return;
+                const photo = photos[currentIndex];
                 
-                if (newPhotos.length > 0) {
-                    updatePhotosList(newPhotos);
-                } else {
-                    statusText.textContent = "Esperando la primera foto...";
-                }
-            }, (error) => {
-                console.error("Error Firestore:", error);
-                statusText.textContent = "ERROR DE PERMISOS";
-                errorDetails.textContent = "Ve a Firebase Console > Firestore Database > Rules y permite lectura/escritura.";
-                errorDetails.classList.remove('hidden');
-            });
-        }
+                imgEl.style.opacity = 0;
+                imgEl.classList.remove('ken-burns');
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                initListener();
-            } else {
-                signInAnonymously(auth).catch(e => {
-                    console.error(e);
-                    statusText.textContent = "Error de autenticación.";
+                setTimeout(() => {
+                    imgEl.src = photo.url;
+                    const user = photo.author && photo.author !== 'Invitado' ? `📸 ${photo.author}` : '';
+                    authorEl.textContent = user;
+                    messageEl.textContent = photo.message || ""; 
+
+                    imgEl.onload = () => {
+                        loadingOverlay.classList.add('hidden');
+                        imgEl.style.opacity = 1;
+                        imgEl.classList.add('ken-burns');
+                    };
+                }, 800); 
+            }
+
+            function updatePhotosList(newPhotos) {
+                photos = newPhotos;
+                if (photos.length > 0) {
+                    loadingOverlay.classList.add('hidden');
+                    if (!slideTimer) {
+                        currentIndex = 0;
+                        startSlideshow();
+                    }
+                }
+            }
+
+            function initListener() {
+                // Escuchar colección 'photos' ordenadas por fecha
+                const q = query(collection(db, "photos"), orderBy("timestamp", "desc"));
+                
+                onSnapshot(q, (snapshot) => {
+                    const newPhotos = [];
+                    snapshot.forEach((doc) => {
+                        newPhotos.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    if (newPhotos.length > 0) {
+                        updatePhotosList(newPhotos);
+                    } else {
+                        statusText.textContent = "Esperando la primera foto...";
+                    }
+                }, (error) => {
+                    console.error("Error Firestore:", error);
+                    statusText.textContent = "ERROR DE PERMISOS";
+                    errorDetails.textContent = "Ve a Firebase Console > Firestore Database > Rules y permite lectura/escritura.";
+                    errorDetails.classList.remove('hidden');
                 });
             }
-        });
-    </script>
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    initListener();
+                } else {
+                    signInAnonymously(auth).catch(e => {
+                        console.error(e);
+                        statusText.textContent = "Error de autenticación.";
+                    });
+                }
+            });
+        </script>
 </body>
 </html>
