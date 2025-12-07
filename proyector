@@ -191,7 +191,7 @@
         <div id="photo-wrapper">
             <div id="loading-overlay">
                 <div class="spinner"></div>
-                <p id="status-text" class="text-[#C19A6B] font-serif text-xl tracking-widest">Conectando...</p>
+                <p id="status-text" class="text-[#C19A6B] font-serif text-xl tracking-widest">Iniciando...</p>
                 <p id="error-details" class="text-red-500 text-sm mt-4 hidden text-center max-w-md"></p>
             </div>
             <img id="current-photo" src="" alt="Momento capturado">
@@ -203,14 +203,15 @@
         </div>
     </div>
 
+    <!-- Script Principal (Módulo) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =========================================================================
-        //  1. CONFIGURACIÓN DE FIREBASE (TUS DATOS YA INSERTADOS)
-        // =========================================================================
+        // =========================================================
+        //  CONFIGURACIÓN DE FIREBASE (Datos Incrustados)
+        // =========================================================
         const firebaseConfig = {
             apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
             authDomain: "proyeccion-boda.firebaseapp.com",
@@ -219,39 +220,65 @@
             messagingSenderId: "163164812654",
             appId: "1:163164812654:web:ffa2b0042f19f1fa0d7d7f"
         };
-        // =========================================================================
+        // =========================================================
 
         const appId = 'album-boda-fotos'; 
         const SLIDESHOW_INTERVAL = 5000; // 5 Segundos por foto
-
-        // Inicialización
-        let app, db, auth;
-        const statusText = document.getElementById('status-text');
-        const errorDetails = document.getElementById('error-details');
-        const loadingOverlay = document.getElementById('loading-overlay');
-
-        try {
-            // Inicialización de la App antes de usar cualquier servicio (FIX del error)
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            statusText.textContent = "Conectando...";
-        } catch (e) {
-            console.error("Error al inicializar Firebase:", e); 
-            statusText.textContent = "ERROR FATAL: Revisar logs de inicialización.";
-            statusText.classList.add('text-red-500');
-            // No detenemos ejecución con return aquí para permitir debug
-        }
 
         // Elementos DOM
         const imgEl = document.getElementById('current-photo');
         const authorEl = document.getElementById('author-text');
         const messageEl = document.getElementById('message-text');
+        const statusText = document.getElementById('status-text');
+        const errorDetails = document.getElementById('error-details');
+        const loadingOverlay = document.getElementById('loading-overlay');
 
         // Estado
+        let app, db, auth;
         let photos = [];
         let currentIndex = 0;
         let slideTimer = null;
+        let isAuthReady = false;
+
+        // Función Principal de Inicio
+        async function initApp() {
+            try {
+                // 1. Inicializar Firebase
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                statusText.textContent = "Autenticando...";
+
+                // 2. Configurar Listener de Auth
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        isAuthReady = true;
+                        startPhotoListener();
+                    } else {
+                        // Si no hay usuario, intentar login anónimo
+                        signInAnonymously(auth).catch(handleAuthError);
+                    }
+                });
+
+            } catch (e) {
+                console.error("Error crítico de inicialización:", e);
+                showError("Error de Configuración", "Revisa que 'firebaseConfig' sea correcto en el código.");
+            }
+        }
+
+        function handleAuthError(error) {
+            console.error("Error de Autenticación:", error);
+            showError("Error de Autenticación", "No se pudo iniciar sesión anónima. Verifica que 'Anonymous' esté habilitado en Firebase Authentication.");
+        }
+
+        function showError(title, detail) {
+            statusText.textContent = title;
+            statusText.classList.add('text-red-500');
+            errorDetails.textContent = detail;
+            errorDetails.classList.remove('hidden');
+            loadingOverlay.classList.remove('hidden'); // Asegurar que el error sea visible
+        }
 
         // --- LÓGICA DEL CARRUSEL ---
 
@@ -311,7 +338,6 @@
                     currentIndex = 0;
                     startSlideshow();
                 } else if (hasNewPhotos) {
-                    // Si llega una foto nueva, mostrarla inmediatamente
                     currentIndex = 0; // Mostrar la más nueva inmediatamente
                     displayCurrentPhoto();
                     startSlideshow(); 
@@ -322,7 +348,10 @@
         // --- CONEXIÓN A FIREBASE ---
         const PHOTO_DOC_REF_PATH = ["artifacts", appId, "public", "data", "photos", "list"];
 
-        function initListener() {
+        function startPhotoListener() {
+            if (!isAuthReady) return;
+            
+            statusText.textContent = "Conectando con el álbum...";
             const docRef = doc(db, ...PHOTO_DOC_REF_PATH);
             
             onSnapshot(docRef, (docSnap) => {
@@ -333,30 +362,17 @@
                     }
                 } else {
                     console.log("Esperando documento...");
-                    // Si el documento no existe aún, seguimos esperando
+                    statusText.textContent = "Esperando fotos...";
                 }
             }, (error) => {
-                // ESTE ES EL ERROR CRÍTICO DE PERMISOS
                 console.error("Error Firestore:", error);
-                statusText.textContent = "ERROR DE PERMISOS";
-                errorDetails.textContent = "Ve a Firebase Console > Firestore > Reglas y publica las reglas de seguridad.";
-                errorDetails.classList.remove('hidden');
+                showError("ERROR DE PERMISOS", "Ve a Firebase Console > Firestore > Reglas y publica las reglas de seguridad.");
             });
         }
 
-        // Autenticación Anónima
-        if (auth) {
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    initListener();
-                } else {
-                    signInAnonymously(auth).catch(e => {
-                        console.error("Error Auth:", e);
-                        statusText.textContent = "Error de autenticación.";
-                    });
-                }
-            });
-        }
+        // Arrancar la aplicación
+        initApp();
+
     </script>
 </body>
 </html>
