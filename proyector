@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nuestra Boda - En Vivo</title>
-    <!-- Carga de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Fuentes Elegantes */
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
 
         /* Paleta de Colores */
@@ -41,7 +39,7 @@
             
             background-color: #fff;
             border: 4px solid var(--gold);
-            outline: 10px solid white; /* Doble borde estilo paspartú */
+            outline: 10px solid white; /* Doble borde */
             box-shadow: 
                 0 0 0 12px var(--camel), /* Borde externo fino */
                 0 30px 80px rgba(0,0,0,0.25); /* Sombra de profundidad */
@@ -105,7 +103,6 @@
             border: 6px solid white; 
         }
 
-        /* Efecto Ken Burns suave */
         .ken-burns {
             transform: scale(1.03);
         }
@@ -207,14 +204,14 @@
         </div>
     </div>
 
-    <!-- Scripts de Firebase y Lógica -->
+    <!-- Scripts de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =========================================================================
-        //  CONFIGURACIÓN DE FIREBASE (TUS DATOS REALES)
+        //  1. CONFIGURACIÓN DE FIREBASE (¡PEGA TUS DATOS AQUÍ!)
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
@@ -229,80 +226,46 @@
         const appId = 'album-boda-fotos'; 
         const SLIDESHOW_INTERVAL = 5000; // 5 Segundos por foto
 
-        // Inicialización de Variables
+        // Inicialización
         let app, db, auth;
-        let photos = [];
-        let currentIndex = 0;
-        let slideTimer = null;
-        let isAuthReady = false;
-
-        // Referencias DOM
         const statusText = document.getElementById('status-text');
         const errorDetails = document.getElementById('error-details');
         const loadingOverlay = document.getElementById('loading-overlay');
+
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            statusText.textContent = "Conectando...";
+        } catch (e) {
+            console.error(e);
+            statusText.textContent = "Error de configuración de Firebase.";
+            statusText.classList.add('text-red-500');
+        }
+
+        // Elementos DOM
         const imgEl = document.getElementById('current-photo');
         const authorEl = document.getElementById('author-text');
         const messageEl = document.getElementById('message-text');
 
-        // Función Principal de Inicio
-        async function initApp() {
-            try {
-                // 1. Inicializar Firebase
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                statusText.textContent = "Autenticando...";
+        // Estado
+        let photos = [];
+        let currentIndex = 0;
+        let slideTimer = null;
 
-                // 2. Configurar Listener de Auth
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        isAuthReady = true;
-                        startPhotoListener();
-                    } else {
-                        // Si no hay usuario, intentar login anónimo
-                        signInAnonymously(auth).catch(handleAuthError);
-                    }
-                });
-
-            } catch (e) {
-                console.error("Error crítico de inicialización:", e);
-                showError("Error de Configuración", "Revisa la configuración de Firebase en el código.");
-            }
-        }
-
-        function handleAuthError(error) {
-            console.error("Error de Autenticación:", error);
-            showError("Error de Autenticación", "No se pudo iniciar sesión anónima. Verifica la consola.");
-        }
-
-        function showError(title, detail) {
-            statusText.textContent = title;
-            statusText.classList.add('text-red-500');
-            errorDetails.textContent = detail;
-            errorDetails.classList.remove('hidden');
-            loadingOverlay.classList.remove('hidden');
-        }
-
-        // --- LÓGICA DEL CARRUSEL (BUCLE) ---
+        // --- LÓGICA DEL CARRUSEL ---
 
         function startSlideshow() {
-            // Limpiar cualquier intervalo existente para evitar duplicados
             if (slideTimer) clearInterval(slideTimer);
             
-            // Si hay fotos, empezar a ciclar
-            if (photos.length > 0) {
-                // Mostrar la primera foto del ciclo inmediatamente si no se ve nada
-                if (imgEl.style.opacity === '0' || imgEl.src === '') {
-                    displayCurrentPhoto();
-                }
+            if (photos.length > 0) displayCurrentPhoto();
 
-                slideTimer = setInterval(() => {
-                    // Avanzar índice en bucle (0 -> 1 -> ... -> max -> 0)
+            slideTimer = setInterval(() => {
+                if (photos.length > 0) {
                     currentIndex = (currentIndex + 1) % photos.length;
                     displayCurrentPhoto();
-                }, SLIDESHOW_INTERVAL);
-            }
+                }
+            }, SLIDESHOW_INTERVAL);
         }
 
         function displayCurrentPhoto() {
@@ -326,16 +289,11 @@
                     imgEl.style.opacity = 1;
                     imgEl.classList.add('ken-burns');
                 };
-                imgEl.onerror = () => {
-                     // Si la imagen falla, saltamos a la siguiente inmediatamente
-                     console.error("Imagen rota, saltando...");
-                     currentIndex = (currentIndex + 1) % photos.length;
-                };
             }, 800); 
         }
 
         function updatePhotosList(newPhotos) {
-            // Ordenar: Nuevas primero (por timestamp)
+            // Ordenar: Nuevas primero
             const sorted = newPhotos.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             const isFirstLoad = photos.length === 0 && sorted.length > 0;
@@ -347,33 +305,26 @@
                 statusText.textContent = "Esperando la primera foto...";
                 loadingOverlay.classList.remove('hidden');
             } else {
-                // Ocultar loading si hay fotos
-                if (!isFirstLoad) loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.add('hidden');
                 
                 if (isFirstLoad) {
                     currentIndex = 0;
                     startSlideshow();
                 } else if (hasNewPhotos) {
-                    // Si llega una foto nueva, la mostramos inmediatamente (índice 0)
-                    // y reiniciamos el ciclo desde ahí.
-                    currentIndex = 0; 
+                    // Si llega una foto nueva, mostrarla inmediatamente
+                    currentIndex = 0; // Mostrar la más nueva inmediatamente
                     displayCurrentPhoto();
                     startSlideshow(); 
                 }
-                // Si no hay fotos nuevas, el slideshow sigue corriendo solo.
             }
         }
 
         // --- CONEXIÓN A FIREBASE ---
         const PHOTO_DOC_REF_PATH = ["artifacts", appId, "public", "data", "photos", "list"];
 
-        function startPhotoListener() {
-            if (!isAuthReady) return;
-            
-            statusText.textContent = "Conectando con el álbum...";
+        function initListener() {
             const docRef = doc(db, ...PHOTO_DOC_REF_PATH);
             
-            // onSnapshot escucha cambios en tiempo real
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -381,19 +332,28 @@
                         updatePhotosList(data.items);
                     }
                 } else {
-                    console.log("Documento no existe aún (esperando primera subida)...");
+                    console.log("Esperando documento...");
                     statusText.textContent = "Esperando fotos...";
                 }
             }, (error) => {
                 console.error("Error Firestore:", error);
-                // Si ves este error, son los PERMISOS en Firebase Console -> Rules
-                showError("ERROR DE PERMISOS", "Ve a Firebase Console > Firestore > Reglas y publica las reglas de seguridad.");
+                statusText.textContent = "ERROR DE PERMISOS";
+                errorDetails.textContent = "Ve a Firebase Console > Firestore > Reglas y publica las reglas de seguridad.";
+                errorDetails.classList.remove('hidden');
             });
         }
 
-        // Arrancar la aplicación
-        initApp();
-
+        // Autenticación Anónima
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                initListener();
+            } else {
+                signInAnonymously(auth).catch(e => {
+                    console.error(e);
+                    statusText.textContent = "Error de autenticación.";
+                });
+            }
+        });
     </script>
 </body>
 </html>
