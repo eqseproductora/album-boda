@@ -7,6 +7,7 @@
     <!-- Carga de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Fuentes Elegantes */
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
 
         /* Paleta de Colores */
@@ -23,6 +24,7 @@
             padding: 0;
             width: 100vw;
             height: 100vh;
+            /* Fondo de pantalla completo sutil */
             background: linear-gradient(135deg, #fdfbf7 0%, #f2e6d9 100%);
             display: flex;
             align-items: center;
@@ -35,18 +37,19 @@
         #projector-frame {
             width: 90vw;
             height: 85vh;
+            /* Mantiene proporción apaisada elegante */
             aspect-ratio: 16 / 9; 
             
             background-color: #fff;
             border: 4px solid var(--gold);
-            outline: 10px solid white; 
+            outline: 10px solid white; /* Doble borde estilo paspartú */
             box-shadow: 
-                0 0 0 12px var(--camel), 
-                0 30px 80px rgba(0,0,0,0.25); 
+                0 0 0 12px var(--camel), /* Borde externo fino */
+                0 30px 80px rgba(0,0,0,0.25); /* Sombra de profundidad */
             border-radius: 20px;
             
             display: grid;
-            grid-template-rows: auto 1fr auto; 
+            grid-template-rows: auto 1fr auto; /* Header - Foto - Footer */
             padding: 2rem 4rem;
             box-sizing: border-box;
             position: relative;
@@ -63,7 +66,7 @@
         .title {
             font-family: 'Playfair Display', serif;
             color: var(--camel);
-            font-size: 3.5rem; 
+            font-size: 3.5rem; /* Grande para proyector */
             font-weight: 700;
             line-height: 1.1;
             margin: 0;
@@ -88,15 +91,16 @@
             overflow: hidden;
             border-radius: 8px;
             background: #fafafa;
-            box-shadow: inset 0 0 30px rgba(193, 154, 107, 0.1);
+            /* Marco interno sutil */
+            box-shadow: inset 0 0 20px rgba(193, 154, 107, 0.1);
             border: 1px solid var(--gold-light);
         }
 
         #current-photo {
             max-width: 98%;
             max-height: 98%;
-            object-fit: contain;
-            opacity: 0;
+            object-fit: contain; /* La foto completa se ve, no se recorta */
+            opacity: 0; /* Inicia invisible para el fade */
             transition: opacity 1s ease-in-out, transform 8s ease-out;
             filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15));
             border: 6px solid white; 
@@ -106,11 +110,11 @@
             transform: scale(1.03);
         }
 
-        /* Textos Inferiores */
+        /* Textos Inferiores (Autor y Mensaje) */
         .caption-bar {
             margin-top: 1rem;
             text-align: center;
-            min-height: 80px;
+            min-height: 80px; /* Espacio reservado */
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -157,7 +161,7 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Decoraciones */
+        /* Decoraciones en esquinas */
         .corner-decor {
             position: absolute;
             width: 40px;
@@ -236,7 +240,7 @@
             console.error("Error al inicializar Firebase:", e); 
             statusText.textContent = "ERROR FATAL: Revisar logs de inicialización.";
             statusText.classList.add('text-red-500');
-            return; // Detiene la ejecución si falla la inicialización
+            // No detenemos ejecución con return aquí para permitir debug
         }
 
         // Elementos DOM
@@ -275,7 +279,7 @@
             setTimeout(() => {
                 imgEl.src = photo.url;
                 
-                const user = photo.userId && photo.userId !== 'Invitado' ? `📸 ${photo.userId.substring(0, 8)}...` : '';
+                const user = photo.userId && photo.userId !== 'Invitado' ? `📸 ${photo.userId}` : '';
                 authorEl.textContent = user;
                 messageEl.textContent = ""; 
 
@@ -285,18 +289,11 @@
                     imgEl.style.opacity = 1;
                     imgEl.classList.add('ken-burns');
                 };
-                imgEl.onerror = () => {
-                    console.error("Error al cargar imagen:", photo.url);
-                    // Si falla, saltar a la siguiente
-                    if (photos.length > 1) {
-                        currentIndex = (currentIndex + 1) % photos.length;
-                        displayCurrentPhoto();
-                    }
-                };
             }, 800); 
         }
 
         function updatePhotosList(newPhotos) {
+            // Ordenar: Nuevas primero
             const sorted = newPhotos.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             const isFirstLoad = photos.length === 0 && sorted.length > 0;
@@ -314,6 +311,7 @@
                     currentIndex = 0;
                     startSlideshow();
                 } else if (hasNewPhotos) {
+                    // Si llega una foto nueva, mostrarla inmediatamente
                     currentIndex = 0; // Mostrar la más nueva inmediatamente
                     displayCurrentPhoto();
                     startSlideshow(); 
@@ -335,6 +333,7 @@
                     }
                 } else {
                     console.log("Esperando documento...");
+                    // Si el documento no existe aún, seguimos esperando
                 }
             }, (error) => {
                 // ESTE ES EL ERROR CRÍTICO DE PERMISOS
@@ -346,17 +345,18 @@
         }
 
         // Autenticación Anónima
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                initListener();
-            } else {
-                signInAnonymously(auth).catch(e => {
-                    console.error("Error al intentar firmar anónimamente:", e);
-                    // Muestra el error si falla incluso el intento anónimo
-                    statusText.textContent = "Error de Autenticación. Revisa la consola.";
-                });
-            }
-        });
+        if (auth) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    initListener();
+                } else {
+                    signInAnonymously(auth).catch(e => {
+                        console.error("Error Auth:", e);
+                        statusText.textContent = "Error de autenticación.";
+                    });
+                }
+            });
+        }
     </script>
 </body>
 </html>
