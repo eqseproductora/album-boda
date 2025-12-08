@@ -142,24 +142,23 @@
         .bl { bottom: 20px; left: 20px; border-right: 0; border-top: 0; }
         .br { bottom: 20px; right: 20px; border-left: 0; border-top: 0; }
 
-        /* --- NUEVO ESTILO QR (Equilibrado y Elegante) --- */
+        /* --- ESTILO QR (Equilibrado y Elegante) --- */
         .qr-badge {
             position: absolute;
             bottom: 25px; /* Alineado con el margen inferior */
             right: 25px;  /* Alineado con el margen derecho */
             
             background: rgba(255, 255, 255, 0.95);
-            padding: 10px 10px 5px 10px; /* Padding ajustado */
+            padding: 10px 10px 5px 10px; 
             border-radius: 12px;
-            border: 1px solid var(--gold); /* Borde fino dorado */
-            box-shadow: 0 4px 15px rgba(193, 154, 107, 0.15); /* Sombra suave color camel */
+            border: 1px solid var(--gold); 
+            box-shadow: 0 4px 15px rgba(193, 154, 107, 0.15); 
             
             display: flex;
             flex-direction: column;
             align-items: center;
             z-index: 100;
             
-            /* Animación suave al pasar el mouse (opcional) */
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
         
@@ -169,10 +168,10 @@
         }
 
         .qr-img {
-            width: 90px;  /* Tamaño controlado para no invadir */
+            width: 90px;  
             height: 90px;
             object-fit: contain;
-            mix-blend-mode: multiply; /* Se fusiona mejor con el fondo */
+            mix-blend-mode: multiply; 
         }
     </style>
 </head>
@@ -203,7 +202,7 @@
             <img src="qr.png" alt="Sube tu foto" class="qr-img">
             <span class="text-[9px] uppercase tracking-widest text-[#C19A6B] font-bold mt-1">Sube tu foto</span>
         </div>
-        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
