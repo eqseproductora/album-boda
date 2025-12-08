@@ -129,7 +129,7 @@
             line-height: 1.2;
         }
 
-        /* Decoraciones */
+        /* Decoraciones de Esquinas */
         .corner-decor {
             position: absolute;
             width: 40px;
@@ -141,6 +141,39 @@
         .tr { top: 20px; right: 20px; border-left: 0; border-bottom: 0; }
         .bl { bottom: 20px; left: 20px; border-right: 0; border-top: 0; }
         .br { bottom: 20px; right: 20px; border-left: 0; border-top: 0; }
+
+        /* --- NUEVO ESTILO QR (Equilibrado y Elegante) --- */
+        .qr-badge {
+            position: absolute;
+            bottom: 25px; /* Alineado con el margen inferior */
+            right: 25px;  /* Alineado con el margen derecho */
+            
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 10px 5px 10px; /* Padding ajustado */
+            border-radius: 12px;
+            border: 1px solid var(--gold); /* Borde fino dorado */
+            box-shadow: 0 4px 15px rgba(193, 154, 107, 0.15); /* Sombra suave color camel */
+            
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 100;
+            
+            /* Animación suave al pasar el mouse (opcional) */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .qr-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(193, 154, 107, 0.25);
+        }
+
+        .qr-img {
+            width: 90px;  /* Tamaño controlado para no invadir */
+            height: 90px;
+            object-fit: contain;
+            mix-blend-mode: multiply; /* Se fusiona mejor con el fondo */
+        }
     </style>
 </head>
 <body>
@@ -165,13 +198,18 @@
             <div id="author-text"></div>
             <div id="message-text"></div>
         </div>
-    </div>
+
+        <div class="qr-badge">
+            <img src="qr.png" alt="Sube tu foto" class="qr-img">
+            <span class="text-[9px] uppercase tracking-widest text-[#C19A6B] font-bold mt-1">Sube tu foto</span>
+        </div>
+        </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONFIGURACIÓN (Misma que index)
+        // CONFIGURACIÓN FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDUToiwZx4f6sI0DrYQt9kdNT-jlxlKeys",
             authDomain: "proyeccion-boda.firebaseapp.com",
@@ -204,10 +242,9 @@
                 photos = newPhotos;
                 waitMsg.style.display = 'none';
                 
-                // Si es la primera foto que llega, iniciar show
                 if (!slideInterval) {
                     showNextPhoto();
-                    slideInterval = setInterval(showNextPhoto, 5000); // 5 segundos
+                    slideInterval = setInterval(showNextPhoto, 5000); 
                 }
             }
         });
@@ -217,23 +254,19 @@
 
             const photo = photos[index];
             
-            // 1. Ocultar (Fade Out)
             imgEl.style.opacity = 0;
             imgEl.classList.remove('ken-burns');
 
             setTimeout(() => {
-                // 2. Cambiar Contenido
                 imgEl.src = photo.url;
                 authorEl.textContent = photo.author && photo.author !== 'Invitado' ? `📸 ${photo.author}` : '';
                 messageEl.textContent = photo.message || ""; 
 
-                // 3. Mostrar (Fade In + Ken Burns)
                 imgEl.onload = () => {
                     imgEl.style.opacity = 1;
                     imgEl.classList.add('ken-burns');
                 };
 
-                // Siguiente índice
                 index = (index + 1) % photos.length;
 
             }, 800); 
